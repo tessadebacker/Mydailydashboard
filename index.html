@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My Daily</title>
+  <meta name="description" content="Mijn dagelijks dashboard: werkagenda, gezinsagenda, weer en outfit-tips.">
+
+  <!-- PWA / snelkoppeling op beginscherm -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0b12">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="My Daily">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="top__left">
+      <p class="eyebrow" id="today-label">—</p>
+      <h1 class="hello"><span id="greeting">Hey</span>, <span class="hello__name" id="name">Tessa</span></h1>
+    </div>
+    <div class="top__right">
+      <div class="clock" id="clock">--:--</div>
+      <button class="icon-btn" id="refresh-btn" aria-label="Vernieuwen" title="Vernieuwen">↻</button>
+      <button class="icon-btn" id="settings-btn" aria-label="Instellingen" title="Instellingen">⚙</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main class="grid">
+    <!-- WEER -->
+    <section class="card card--weather" id="weather-card">
+      <div class="card__head">
+        <h2 class="card__title">Weer</h2>
+        <span class="tag" id="weather-place">…</span>
+      </div>
+      <div class="weather" id="weather">
+        <div class="skeleton">Weer laden…</div>
+      </div>
+    </section>
+
+    <!-- OUTFIT -->
+    <section class="card card--outfit" id="outfit-card">
+      <div class="card__head">
+        <h2 class="card__title">Wat trek je aan?</h2>
+        <span class="tag tag--lime" id="outfit-vibe">…</span>
+      </div>
+      <div class="outfit" id="outfit">
+        <div class="skeleton">Even kijken naar het weer…</div>
+      </div>
+    </section>
+
+    <!-- WERK VANDAAG -->
+    <section class="card card--work" id="work-card">
+      <div class="card__head">
+        <h2 class="card__title">Werk vandaag</h2>
+        <span class="tag tag--orange" id="work-stats">…</span>
+      </div>
+      <div id="work-next"></div>
+      <ol class="timeline" id="work-list"></ol>
+    </section>
+
+    <!-- GEZIN 3 DAGEN -->
+    <section class="card card--family" id="family-card">
+      <div class="card__head">
+        <h2 class="card__title">Tessa &amp; Lorenzo</h2>
+        <div class="legend">
+          <span class="dot dot--tessa"></span><span id="legend-tessa">Tessa</span>
+          <span class="dot dot--lorenzo"></span><span id="legend-lorenzo">Lorenzo</span>
+        </div>
+      </div>
+      <div class="days" id="family-days"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="updated">—</span>
+  </footer>
+
+  <!-- INSTELLINGEN -->
+  <dialog class="sheet" id="settings">
+    <form method="dialog" class="sheet__inner" id="settings-form">
+      <div class="sheet__head">
+        <h2>Instellingen</h2>
+        <button class="icon-btn" value="cancel" aria-label="Sluiten">✕</button>
+      </div>
+
+      <fieldset>
+        <legend>Jij</legend>
+        <label>Je naam <input name="name" autocomplete="given-name"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Locatie voor het weer</legend>
+        <label class="row"><input type="checkbox" name="useGeo"> Gebruik de locatie van mijn toestel</label>
+        <label>Of kies een stad
+          <div class="row">
+            <input name="city" placeholder="bv. Gent">
+            <button type="button" class="btn btn--ghost" id="city-search">Zoek</button>
+          </div>
+        </label>
+        <p class="hint" id="city-result"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Kinderen</legend>
+        <p class="hint">Voor de kledingtips. Leeftijd helpt (bv. reservekleren voor kleintjes).</p>
+        <div id="kids-list"></div>
+        <button type="button" class="btn btn--ghost" id="kid-add">+ Kind toevoegen</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Agenda-koppelingen</legend>
+        <p class="hint">Plak hier de <b>Web-app URL</b> en <b>token</b> van je Google Apps Script
+          (zie de handleiding in <code>SETUP.md</code>). Eén koppeling per Google-account,
+          bv. één voor je werk-account en één voor je persoonlijke account.</p>
+        <div id="sources-list"></div>
+        <button type="button" class="btn btn--ghost" id="source-add">+ Koppeling toevoegen</button>
+        <button type="button" class="btn btn--ghost" id="source-test">Test koppelingen</button>
+        <p class="hint" id="source-result"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Naar je telefoon overzetten</legend>
+        <p class="hint">Instellingen staan enkel op dit toestel (niet in de publieke repo).
+          Kopieer deze link en open hem op je telefoon — alles staat daarna meteen goed.
+          Deel deze link met niemand: hij bevat je agenda-token.</p>
+        <button type="button" class="btn btn--ghost" id="copy-setup">Kopieer setup-link</button>
+        <p class="hint" id="copy-result"></p>
+      </fieldset>
+
+      <div class="sheet__actions">
+        <button class="btn btn--ghost" value="cancel">Annuleren</button>
+        <button class="btn btn--primary" value="save" id="settings-save">Opslaan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
