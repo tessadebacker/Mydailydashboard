@@ -97,7 +97,12 @@ en daarna elke 15 minuten. De laatst geladen agenda blijft zichtbaar als je offl
   - Regent het of wordt het warm, dan komen regenjas of zonnecrème er vanzelf bij.
 - **Remi & Cilou**: kledingtips per kind (jongen of meisje, en eventueel leeftijd bij
   Instellingen), elk met een eigen Pinterest-knop.
-- **Wat trek je aan?**: kledingtips voor jou (werkdag of vrije dag, en of er een grote meeting is).
+- **Wat trek je aan?**: een outfit in jouw stijl. De "formules" in `style-profile.js` komen uit je
+  Pinterest-bord [outfits cl](https://www.pinterest.com/taldback/outfits-cl/): leopard als basis,
+  wijde broeken, kleurclash en retro sneakers. De app kiest elke dag een formule die past bij het weer
+  en bij werk- of vrije dag, en vult zelf de juiste jas en laagjes aan. Bij een klantgesprek of
+  presentatie stelt ze een blazer voor. Met **Andere combi** klik je door naar een andere formule.
+  Nieuwe pins op je bord? Vraag Claude om `style-profile.js` bij te werken.
   Vanaf 17u krijg je de tips voor **morgen**, zodat je de kleren al kan klaarleggen.
   Bij elke outfit staat een knop **Inspiratie op Pinterest**. Die zoekt op de voorgestelde
   outfit, met het seizoen en eventueel regen erbij. Op je iPhone opent de knop meteen de Pinterest-app.

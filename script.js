@@ -2,6 +2,8 @@
 // Statische app: agenda via eigen Google Apps Script-koppeling(en), weer via Open-Meteo.
 // Alle persoonlijke instellingen (koppelingen, tokens) blijven in localStorage op het toestel.
 
+import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js';
+
 const LS_SETTINGS = 'mydaily.settings.v1';
 const LS_CACHE = 'mydaily.cache.v1';
 const FAMILY_DAYS = 3;
@@ -219,41 +221,55 @@ function isWorkday(date, events) {
   return !events.some((e) => e.allDay && /verlof|vakantie|holiday|ooo|out of office|afwezig/i.test(e.title));
 }
 
-function outfitForMe(s, workday, bigMeeting) {
-  const items = [];
+// Kiest een outfit-formule uit het stijlprofiel (style-profile.js) die past bij het weer en het soort dag.
+// Elke dag een andere (op basis van de datum); "Andere combi" schuift door naar de volgende.
+let outfitShift = 0;
+function pickFormula(s, workday, day) {
+  const t = (s.feelMorning + s.feelAfternoon) / 2;
+  const fits = (f) => (workday ? f.when !== 'free' : f.when !== 'work');
+  let pool = STYLE_FORMULAS.filter((f) => fits(f) && t >= f.t[0] && t <= f.t[1]);
+  if (!pool.length) {
+    // Niets past exact: neem de formules die het dichtst bij de temperatuur liggen.
+    const dist = (f) => (t < f.t[0] ? f.t[0] - t : t > f.t[1] ? t - f.t[1] : 0);
+    const cands = STYLE_FORMULAS.filter(fits);
+    const best = Math.min(...cands.map(dist));
+    pool = cands.filter((f) => dist(f) <= best + 2);
+  }
+  const dayNr = Math.floor(startOfDay(day).getTime() / 86400000);
+  return { formula: pool[(dayNr + outfitShift) % pool.length], count: pool.length };
+}
+
+// Een meeting waarvoor je er "sharp" uit wil zien: klant, pitch, presentatie of een grote groep (geen routine-overleg).
+const BIG_MEETING = /klant|client|customer|pitch|presentat|demo|board|directie|interview|sales|workshop|conferen|event/i;
+const ROUTINE_MEETING = /stand-?up|daily|weekly|sync|lunch|1:1|one.on.one|focus|check-?in|halen/i;
+function isBigMeeting(e) {
+  if (ROUTINE_MEETING.test(e.title)) return false;
+  return BIG_MEETING.test(e.title) || e.guests >= 6;
+}
+
+function outfitForMe(s, workday, bigMeeting, day) {
+  const { formula, count } = pickFormula(s, workday, day);
+  const items = [...formula.items];
   const f = s.feelMorning;
   const wet = s.rainHours.length > 0 || s.rainMax >= 60;
-  const layered = s.feelMax - s.feelMin >= 7;
-
-  let pin; // zoektermen voor Pinterest-inspiratie (Engels geeft de beste resultaten)
-  if (workday) {
-    if (f <= 5) { items.push('wollen coltrui', 'wide-leg pantalon', 'lange wollen jas', 'sjaal'); pin = 'turtleneck wide leg trousers long wool coat'; }
-    else if (f <= 11) { items.push('fijne knit', 'wide-leg jeans of pantalon', 'oversized blazer of trenchcoat'); pin = 'knit oversized blazer trench coat wide leg'; }
-    else if (f <= 17) { items.push('statement blouse', 'pantalon of midi-rok', 'blazer (uit te doen)'); pin = 'blouse midi skirt blazer'; }
-    else if (f <= 22) { items.push('luchtige blouse of tee', 'wide-leg linnen broek', 'lichte overshirt'); pin = 'linen trousers blouse overshirt'; }
-    else { items.push('linnen set of luchtige jurk', 'lichte loafers of sandalen'); pin = 'linen set summer dress'; }
-    pin = `work outfit ${pin}`;
-    if (bigMeeting) items.push('iets sharp: je sterkste blazer');
-  } else {
-    if (f <= 5) { items.push('dikke hoodie of chunky knit', 'jeans', 'puffer jacket', 'muts'); pin = 'chunky knit puffer jacket beanie'; }
-    else if (f <= 11) { items.push('sweater', 'jeans of cargo', 'bomber of teddyjas'); pin = 'sweater jeans teddy jacket'; }
-    else if (f <= 17) { items.push('longsleeve of shirt', 'jeans', 'jeansjasje of overshirt'); pin = 'denim jacket overshirt jeans'; }
-    else if (f <= 22) { items.push('tee', 'wide jeans of rok', 'licht vestje voor \'s avonds'); pin = 'tee wide jeans cardigan'; }
-    else { items.push('tank of tee', 'short of luchtige jurk', 'sneakers of sandalen'); pin = 'summer dress shorts sandals'; }
-    pin = `casual mom outfit ${pin}`;
-  }
-  if (wet) items.push(f <= 11 ? 'waterdichte parka' : 'regenjas', wet && f <= 11 ? 'boots' : 'waterdichte sneakers');
-  else if (f > 11) items.push(workday ? 'clean sneakers of loafers' : 'sneakers');
-  else items.push('boots');
-  if (s.uv >= 5) items.push('zonnebril', 'SPF');
-  if (s.windMax >= 40 && !wet) items.push('iets winddichts');
-
   const notes = [];
-  if (layered) notes.push(`Laagjes: ${Math.round(s.feelMin)}° 's ochtends, ${Math.round(s.feelMax)}° op z'n warmst.`);
+
+  // Het weer bepaalt de jas en de laagjes.
+  if (f <= 3) items.push('lange wollen jas', 'dikke sjaal', 'handschoenen');
+  else if (f <= 8) items.push(wet ? 'waterdichte parka' : 'lange wollen jas (camel of zwart)', 'sjaal');
+  else if (f <= 13) items.push(wet ? 'regenjas in een felle kleur' : 'trenchcoat of oversized blazer');
+  else if (wet) items.push('lichte regenjas');
+  if (bigMeeting) items.push('oversized blazer erover');
+  if (s.uv >= 5 && !items.some((i) => /zonnebril/.test(i))) items.push('zonnebril', 'SPF');
+
+  if (wet && formula.suede) notes.push('Regen: suède houdt daar niet van — kies leren sneakers of boots.');
+  else if (wet && /loafers|ballerina|sandal/i.test(formula.items.join(' '))) notes.push('Regen: kies boots in plaats van open schoenen.');
+  if (s.feelMax - s.feelMin >= 7) notes.push(`Laagjes: ${Math.round(s.feelMin)}° 's ochtends, ${Math.round(s.feelMax)}° op z'n warmst.`);
   if (wet) notes.push(`Paraplu of kap mee — regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
   if (bigMeeting) notes.push(`Op de agenda: "${bigMeeting}".`);
-  if (wet) pin += ' rainy day';
-  return { items: [...new Set(items)], notes, pin: `${season()} ${pin}` };
+
+  const pin = `${formula.pin}${wet ? ' rainy day' : ''}${f <= 8 ? ' coat' : ''}`;
+  return { items: [...new Set(items)], notes, pin, formula, count };
 }
 
 function season(d = new Date()) {
@@ -326,11 +342,27 @@ function renderOutfit() {
   const s = daySummary(w, index);
   const work = state.calendars?.werk ? eventsOn(state.calendars.werk, day) : null;
   const workday = isWorkday(day, work);
-  const big = (work || []).find((e) => !e.allDay && new Date(e.end) > new Date() && e.guests >= 4)?.title;
-  const me = outfitForMe(s, workday, big);
+  const big = (work || []).find((e) => !e.allDay && new Date(e.end) > new Date() && isBigMeeting(e))?.title;
+  const me = outfitForMe(s, workday, big, day);
   $('#outfit-card .card__title').innerHTML = tomorrow ? 'Klaarleggen <em>voor morgen</em>' : 'Wat trek je <em>vandaag</em> aan?';
   $('#outfit-vibe').textContent = vibe(s);
-  $('#outfit').innerHTML = outfitBlock(`${settings.name || 'Jij'} · ${tomorrow ? 'morgen · ' : ''}${workday ? 'werkdag' : 'vrije dag'}`, '', me);
+  $('#outfit').innerHTML = `
+    <div class="outfit__who">
+      <div class="outfit__name">${esc(settings.name || 'Jij')} · ${tomorrow ? 'morgen · ' : ''}${workday ? 'werkdag' : 'vrije dag'}</div>
+      <div class="look">
+        <span class="look__swatches">${me.formula.colors.map((c) => `<i style="background:${c}"></i>`).join('')}</span>
+        <span class="look__name">${esc(me.formula.name)}</span>
+      </div>
+      <ul class="outfit__items">${me.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+      ${me.notes.map((n) => `<p class="outfit__note">${esc(n)}</p>`).join('')}
+      <div class="outfit__actions">
+        ${me.count > 1 ? `<button type="button" class="btn-pill" id="outfit-next">↻ Andere combi</button>` : ''}
+        <a class="pin-btn" href="${pinterestUrl(me.pin)}" target="_blank" rel="noopener">Meer zoals dit <span aria-hidden="true">↗</span></a>
+        <a class="btn-pill" href="${STYLE_BOARD}" target="_blank" rel="noopener">Mijn bord</a>
+      </div>
+      <p class="outfit__style">${esc(STYLE_SUMMARY)}</p>
+    </div>`;
+  $('#outfit-next')?.addEventListener('click', () => { outfitShift++; renderOutfit(); });
 }
 
 function renderKids() {
