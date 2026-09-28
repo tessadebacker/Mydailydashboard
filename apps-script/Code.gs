@@ -16,14 +16,16 @@ const TOKEN = 'VERVANG-MIJ-door-een-lange-geheime-code';
 //    key   = 'werk', 'tessa' of 'lorenzo' (zo weet het dashboard waar het hoort)
 //    id    = 'primary' (je hoofdagenda) of het agenda-ID (Agenda-instellingen → "Agenda integreren")
 //    name  = in plaats van id: de naam zoals hij in Google Agenda staat, bv. 'Tessa'
+//    fallback = optioneel: 'primary' als reserve wanneer de naam niet gevonden wordt
+//               (handig als "Tessa" eigenlijk je hoofdagenda is)
 //
 // Voorbeeld werk-account:
 //    { key: 'werk', label: 'Werk', id: 'primary' },
 // Voorbeeld persoonlijk account:
-//    { key: 'tessa', label: 'Tessa', name: 'Tessa' },
+//    { key: 'tessa', label: 'Tessa', name: 'Tessa', fallback: 'primary' },
 //    { key: 'lorenzo', label: 'Lorenzo', name: 'Lorenzo' },
 const CALENDARS = [
-  { key: 'tessa', label: 'Tessa', name: 'Tessa' },
+  { key: 'tessa', label: 'Tessa', name: 'Tessa', fallback: 'primary' },
   { key: 'lorenzo', label: 'Lorenzo', name: 'Lorenzo' },
 ];
 
@@ -63,8 +65,9 @@ function findCalendar_(c) {
   if (c.id) return CalendarApp.getCalendarById(c.id);
   if (c.name) {
     const found = CalendarApp.getCalendarsByName(c.name);
-    return found && found.length ? found[0] : null;
+    if (found && found.length) return found[0];
   }
+  if (c.fallback === 'primary') return CalendarApp.getDefaultCalendar();
   return null;
 }
 
@@ -101,6 +104,13 @@ function startOfToday_() {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Toont alle agenda's van dit account met hun naam en ID (Uitvoeren → toonAgendas). */
+function toonAgendas() {
+  CalendarApp.getAllCalendars().forEach(function (cal) {
+    Logger.log(cal.getName() + '  →  ' + cal.getId());
+  });
 }
 
 /** Handig om te testen in de editor: Uitvoeren → testMe, en bekijk het logboek. */
