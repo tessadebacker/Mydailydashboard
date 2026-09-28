@@ -2,7 +2,9 @@
 // Statische app: agenda via eigen Google Apps Script-koppeling(en), weer via Open-Meteo.
 // Alle persoonlijke instellingen (koppelingen, tokens) blijven in localStorage op het toestel.
 
-import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js';
+import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js?v=2026.09.28.2';
+
+const APP_VERSION = '2026.09.28.2';
 
 const LS_SETTINGS = 'mydaily.settings.v1';
 const LS_CACHE = 'mydaily.cache.v1';
@@ -736,7 +738,7 @@ async function loadAll() {
   }
   if (c.status === 'rejected') state.errors.push(String(c.reason?.message || c.reason));
   renderAll();
-  $('#updated').textContent = `Bijgewerkt om ${hhmm(new Date())}${state.demo ? ' · demo-agenda' : ''}`;
+  $('#updated').textContent = `Bijgewerkt om ${hhmm(new Date())}${state.demo ? ' · demo-agenda' : ''} · versie ${APP_VERSION}`;
   btn.classList.remove('spin');
 }
 
