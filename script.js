@@ -2,9 +2,9 @@
 // Statische app: agenda via eigen Google Apps Script-koppeling(en), weer via Open-Meteo.
 // Alle persoonlijke instellingen (koppelingen, tokens) blijven in localStorage op het toestel.
 
-import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js?v=2026.09.28.2';
+import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js?v=2026.09.28.3';
 
-const APP_VERSION = '2026.09.28.2';
+const APP_VERSION = '2026.09.28.3';
 
 const LS_SETTINGS = 'mydaily.settings.v1';
 const LS_CACHE = 'mydaily.cache.v1';
@@ -42,6 +42,18 @@ const b64encode = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))
 const b64decode = (str) => JSON.parse(decodeURIComponent(escape(atob(str))));
 
 let settings = { ...DEFAULT_SETTINGS, ...lsGet(LS_SETTINGS, {}) };
+
+// Eén geheime code per toestel/gezin, aangemaakt in de browser. Die komt in je Apps Script
+// en wordt meegestuurd bij elke agenda-aanvraag. Staat nooit in de publieke repo.
+function newToken() {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return [...bytes].map((b) => a[b % a.length]).join('');
+}
+if (!settings.token) {
+  settings.token = (settings.sources || []).find((s) => s.token)?.token || newToken();
+  lsSet(LS_SETTINGS, settings);
+}
 let state = { weather: null, place: null, calendars: null, demo: false, errors: [] };
 
 // Setup-link (#setup=...) importeren: zo zet je de instellingen in één tik over naar je telefoon.
@@ -536,7 +548,7 @@ async function loadCalendars() {
 
 async function fetchSource(source, from, to) {
   const url = new URL(source.url);
-  url.searchParams.set('token', source.token || '');
+  url.searchParams.set('token', source.token || settings.token || '');
   url.searchParams.set('from', from.toISOString());
   url.searchParams.set('to', to.toISOString());
   // Gewone GET zonder extra headers => geen CORS-preflight; Apps Script stuurt Access-Control-Allow-Origin: *
@@ -760,7 +772,7 @@ function sourceRow(s = {}) {
   const div = document.createElement('div');
   div.className = 'subcard';
   div.innerHTML = `<label>Web-app URL <input data-f="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(s.url || '')}"></label>
-    <div class="row"><input data-f="token" placeholder="Token" value="${esc(s.token || '')}">
+    <div class="row"><input data-f="token" placeholder="Token" value="${esc(s.token || settings.token || '')}">
     <button type="button" class="btn btn--x" aria-label="Verwijder">✕</button></div>`;
   div.querySelector('button').onclick = () => div.remove();
   return div;
@@ -778,6 +790,7 @@ function openSettings() {
   $('#copy-result').textContent = '';
   $('#kids-list').replaceChildren(...(settings.kids || []).map(kidRow));
   $('#sources-list').replaceChildren(...((settings.sources || []).length ? settings.sources : [{}]).map(sourceRow));
+  prefetchScript();
   $('#settings').showModal();
 }
 
@@ -838,6 +851,37 @@ async function copySetup() {
     out.innerHTML = `Kopieer deze link:<br><input readonly value="${esc(link)}" onclick="this.select()">`;
   }
 }
+
+// Apps Script-code klaarzetten met je token en de juiste agenda's, zodat je enkel moet plakken.
+// We halen de code vooraf op: iOS laat kopiëren naar het klembord enkel toe meteen na een tik.
+let scriptTemplate = null;
+function prefetchScript() {
+  if (scriptTemplate) return;
+  fetch(`apps-script/Code.gs?v=${APP_VERSION}`).then((r) => (r.ok ? r.text() : null)).then((t) => { scriptTemplate = t; }).catch(() => {});
+}
+const SCRIPT_CALENDARS = {
+  werk: "const CALENDARS = [\n  { key: 'werk', label: 'Werk', id: 'primary' },\n];",
+  home: "const CALENDARS = [\n  { key: 'tessa', label: 'Tessa', name: 'Tessa', fallback: 'primary' },\n  { key: 'lorenzo', label: 'Lorenzo', name: 'Lorenzo' },\n];",
+};
+function buildScript(kind) {
+  if (!scriptTemplate) return null;
+  return scriptTemplate
+    .replace(/const TOKEN = '[^']*';/, `const TOKEN = '${settings.token}';`)
+    .replace(/const CALENDARS = \[[\s\S]*?\n\];/, SCRIPT_CALENDARS[kind]);
+}
+async function copyScript(kind) {
+  const out = $('#copy-script-result');
+  const code = buildScript(kind);
+  if (!code) { out.innerHTML = '<span class="err">Script nog niet geladen — probeer zo meteen opnieuw.</span>'; prefetchScript(); return; }
+  try {
+    await navigator.clipboard.writeText(code);
+    out.innerHTML = `<span class="ok">✔ Script (${kind === 'werk' ? 'werk-account' : 'persoonlijk account'}) gekopieerd. Plak het nu op script.google.com.</span>`;
+  } catch {
+    out.innerHTML = 'Kopiëren lukte niet automatisch. Houd het vak ingedrukt → Selecteer alles → Kopieer:<textarea readonly rows="6" style="width:100%;margin-top:6px">' + esc(code) + '</textarea>';
+  }
+}
+$('#copy-script-werk').addEventListener('click', () => copyScript('werk'));
+$('#copy-script-home').addEventListener('click', () => copyScript('home'));
 
 $('#settings-btn').addEventListener('click', openSettings);
 $('#refresh-btn').addEventListener('click', loadAll);

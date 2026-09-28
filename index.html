@@ -7,10 +7,10 @@
   <meta name="description" content="Mijn dagelijks dashboard: werkagenda, gezinsagenda, weer en outfit-tips.">
 
   <!-- PWA / snelkoppeling op beginscherm -->
-  <link rel="manifest" href="manifest.json?v=2026.09.28.2">
+  <link rel="manifest" href="manifest.json?v=2026.09.28.3">
   <meta name="theme-color" content="#f5efe4">
-  <link rel="apple-touch-icon" href="icons/icon-180.png?v=2026.09.28.2">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2026.09.28.2">
+  <link rel="apple-touch-icon" href="icons/icon-180.png?v=2026.09.28.3">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2026.09.28.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2026.09.28.2">
+  <link rel="stylesheet" href="style.css?v=2026.09.28.3">
 </head>
 <body>
   <header class="top">
@@ -149,9 +149,16 @@
 
       <fieldset>
         <legend>Agenda-koppelingen</legend>
-        <p class="hint">Plak hier de <b>Web-app URL</b> en <b>token</b> van je Google Apps Script
-          (zie de handleiding in <code>SETUP.md</code>). Eén koppeling per Google-account,
-          bv. één voor je werk-account en één voor je persoonlijke account.</p>
+        <p class="hint">Eén koppeling per Google-account: één voor je werk-account, één voor je
+          persoonlijke account (Tessa &amp; Lorenzo). Stap voor stap: zie <code>SETUP.md</code>.</p>
+        <p class="hint"><b>1.</b> Kopieer het script voor het juiste account (je geheime code staat er al in):</p>
+        <div class="row row--wrap">
+          <button type="button" class="btn" id="copy-script-werk">Kopieer script · werk</button>
+          <button type="button" class="btn" id="copy-script-home">Kopieer script · persoonlijk</button>
+        </div>
+        <p class="hint" id="copy-script-result"></p>
+        <p class="hint"><b>2.</b> Plak het op script.google.com en publiceer als web-app.
+          <b>3.</b> Plak hieronder de <b>Web-app URL</b> die je krijgt.</p>
         <div id="sources-list"></div>
         <button type="button" class="btn btn--ghost" id="source-add">+ Koppeling toevoegen</button>
         <button type="button" class="btn btn--ghost" id="source-test">Test koppelingen</button>
@@ -174,6 +181,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="script.js?v=2026.09.28.2"></script>
+  <script type="module" src="script.js?v=2026.09.28.3"></script>
 </body>
 </html>
