@@ -66,7 +66,8 @@ Doe het volgende **per account** (log in met het juiste account):
 >   Dan heb je maar één koppeling nodig.
 > - Of vraag het na bij IT.
 
-**Code aangepast?** Kies *Implementeren → Implementaties beheren*, klik op het potlood en kies
+**Code aangepast?** (bv. een nieuwe versie van `Code.gs` uit deze repo) Plak de nieuwe code, maar
+laat je eigen `TOKEN` en `CALENDARS` bovenaan staan. Kies daarna *Implementeren → Implementaties beheren*, klik op het potlood en kies
 bij Versie **Nieuwe versie**. Zo blijft de URL dezelfde.
 
 ## 3. Op je telefoon zetten
@@ -84,10 +85,28 @@ en daarna elke 15 minuten. De laatst geladen agenda blijft zichtbaar als je offl
 
 ## Wat het dashboard toont
 
+- **Mee voor de kids** (helemaal bovenaan): de app doorzoekt je werkagenda, "Tessa" en "Lorenzo"
+  naar afspraken over Remi en Cilou en naar dingen die mee moeten. Je kan alles afvinken, en dat
+  wordt per dag onthouden. Vanaf 17u zie je wat je voor **morgen** moet klaarzetten.
+  Zo herkent de app het het best (in de titel of de beschrijving van een afspraak):
+  - `Zwemzak meenemen`, `Koekjes meebrengen voor de klas`
+  - `Niet vergeten: laarzen, reservekleren` of `Meebrengen: 2 euro, briefje`
+  - Activiteiten vult de app zelf aan: zwemmen → zwemgerief, turnen → turnzak,
+    uitstap → lunchpakket + drinkbus, feestje → cadeautje, dokter/specialist → Kids-ID, …
+  - Ophaalmomenten zoals "Remi/Cilou halen" worden ook getoond, met het uur.
+  - Regent het of wordt het warm, dan komen regenjas of zonnecrème er vanzelf bij.
+- **Remi & Cilou**: kledingtips per kind (jongen of meisje, en eventueel leeftijd bij
+  Instellingen), elk met een eigen Pinterest-knop.
+- **Wat trek je aan?**: een outfit in jouw stijl. De "formules" in `style-profile.js` komen uit je
+  Pinterest-bord [outfits cl](https://www.pinterest.com/taldback/outfits-cl/): leopard als basis,
+  wijde broeken, kleurclash en retro sneakers. De app kiest elke dag een formule die past bij het weer
+  en bij werk- of vrije dag, en vult zelf de juiste jas en laagjes aan. Bij een klantgesprek of
+  presentatie stelt ze een blazer voor. Met **Andere combi** klik je door naar een andere formule.
+  Nieuwe pins op je bord? Vraag Claude om `style-profile.js` bij te werken.
+  Vanaf 17u krijg je de tips voor **morgen**, zodat je de kleren al kan klaarleggen.
+  Bij elke outfit staat een knop **Inspiratie op Pinterest**. Die zoekt op de voorgestelde
+  outfit, met het seizoen en eventueel regen erbij. Op je iPhone opent de knop meteen de Pinterest-app.
 - **Werk vandaag**: tijdlijn met een "nu"-lijn, de huidige of volgende meeting, het aantal
   meetings en het aantal uren. Afgewezen uitnodigingen worden niet getoond.
 - **Tessa & Lorenzo**: vandaag, morgen en overmorgen naast elkaar, met het weer per dag.
 - **Weer**: nu, per uur, minimum en maximum, regen, wind, UV en zonsondergang, plus een korte samenvatting.
-- **Wat trek je aan?**: kledingtips voor jou (werkdag of vrije dag, en of er een grote meeting
-  is) en voor de kinderen. Je vult hun naam en leeftijd in bij Instellingen. Vanaf 17u krijg je de tips
-  voor **morgen**, zodat je de kleren al kan klaarleggen.

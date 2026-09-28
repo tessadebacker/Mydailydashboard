@@ -2,6 +2,8 @@
 // Statische app: agenda via eigen Google Apps Script-koppeling(en), weer via Open-Meteo.
 // Alle persoonlijke instellingen (koppelingen, tokens) blijven in localStorage op het toestel.
 
+import { STYLE_FORMULAS, STYLE_BOARD, STYLE_SUMMARY } from './style-profile.js';
+
 const LS_SETTINGS = 'mydaily.settings.v1';
 const LS_CACHE = 'mydaily.cache.v1';
 const FAMILY_DAYS = 3;
@@ -10,7 +12,7 @@ const DEFAULT_SETTINGS = {
   name: 'Tessa',
   useGeo: true,
   city: { name: 'Gent', lat: 51.0543, lon: 3.7174 },
-  kids: [],
+  kids: [{ name: 'Remi', gender: 'jongen', age: '' }, { name: 'Cilou', gender: 'meisje', age: '' }],
   sources: [], // [{ url, token }]
 };
 
@@ -24,7 +26,7 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const DAY_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'long' });
 const DATE_FMT = new Intl.DateTimeFormat('nl-BE', { day: 'numeric', month: 'short' });
-const LONG_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+const LONG_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' });
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
@@ -69,6 +71,7 @@ function tickClock() {
   $('#greeting').textContent = h < 6 ? 'Nachtuil' : h < 12 ? 'Goeiemorgen' : h < 18 ? 'Hey' : 'Goeienavond';
   $('#today-label').textContent = LONG_FMT.format(now);
   $('#name').textContent = settings.name || 'jij';
+  $('#avatar').textContent = (settings.name || 'T').trim().charAt(0).toUpperCase();
 }
 
 // ---------- WEER ----------
@@ -218,63 +221,93 @@ function isWorkday(date, events) {
   return !events.some((e) => e.allDay && /verlof|vakantie|holiday|ooo|out of office|afwezig/i.test(e.title));
 }
 
-function outfitForMe(s, workday, bigMeeting) {
-  const items = [];
-  const f = s.feelMorning;
-  const wet = s.rainHours.length > 0 || s.rainMax >= 60;
-  const layered = s.feelMax - s.feelMin >= 7;
-
-  if (workday) {
-    if (f <= 5) items.push('wollen coltrui', 'wide-leg pantalon', 'lange wollen jas', 'sjaal');
-    else if (f <= 11) items.push('fijne knit', 'wide-leg jeans of pantalon', 'oversized blazer of trenchcoat');
-    else if (f <= 17) items.push('statement blouse', 'pantalon of midi-rok', 'blazer (uit te doen)');
-    else if (f <= 22) items.push('luchtige blouse of tee', 'wide-leg linnen broek', 'lichte overshirt');
-    else items.push('linnen set of luchtige jurk', 'lichte loafers of sandalen');
-    if (bigMeeting) items.push('iets sharp: je sterkste blazer');
-  } else {
-    if (f <= 5) items.push('dikke hoodie of chunky knit', 'jeans', 'puffer jacket', 'muts');
-    else if (f <= 11) items.push('sweater', 'jeans of cargo', 'bomber of teddyjas');
-    else if (f <= 17) items.push('longsleeve of shirt', 'jeans', 'jeansjasje of overshirt');
-    else if (f <= 22) items.push('tee', 'wide jeans of rok', 'licht vestje voor \'s avonds');
-    else items.push('tank of tee', 'short of luchtige jurk', 'sneakers of sandalen');
+// Kiest een outfit-formule uit het stijlprofiel (style-profile.js) die past bij het weer en het soort dag.
+// Elke dag een andere (op basis van de datum); "Andere combi" schuift door naar de volgende.
+let outfitShift = 0;
+function pickFormula(s, workday, day) {
+  const t = (s.feelMorning + s.feelAfternoon) / 2;
+  const fits = (f) => (workday ? f.when !== 'free' : f.when !== 'work');
+  let pool = STYLE_FORMULAS.filter((f) => fits(f) && t >= f.t[0] && t <= f.t[1]);
+  if (!pool.length) {
+    // Niets past exact: neem de formules die het dichtst bij de temperatuur liggen.
+    const dist = (f) => (t < f.t[0] ? f.t[0] - t : t > f.t[1] ? t - f.t[1] : 0);
+    const cands = STYLE_FORMULAS.filter(fits);
+    const best = Math.min(...cands.map(dist));
+    pool = cands.filter((f) => dist(f) <= best + 2);
   }
-  if (wet) items.push(f <= 11 ? 'waterdichte parka' : 'regenjas', wet && f <= 11 ? 'boots' : 'waterdichte sneakers');
-  else if (f > 11) items.push(workday ? 'clean sneakers of loafers' : 'sneakers');
-  else items.push('boots');
-  if (s.uv >= 5) items.push('zonnebril', 'SPF');
-  if (s.windMax >= 40 && !wet) items.push('iets winddichts');
-
-  const notes = [];
-  if (layered) notes.push(`Laagjes: ${Math.round(s.feelMin)}° 's ochtends, ${Math.round(s.feelMax)}° op z'n warmst.`);
-  if (wet) notes.push(`Paraplu of kap mee — regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
-  if (bigMeeting) notes.push(`Op de agenda: "${bigMeeting}".`);
-  return { items: [...new Set(items)], notes };
+  const dayNr = Math.floor(startOfDay(day).getTime() / 86400000);
+  return { formula: pool[(dayNr + outfitShift) % pool.length], count: pool.length };
 }
 
-function outfitForKids(s, kids) {
+// Een meeting waarvoor je er "sharp" uit wil zien: klant, pitch, presentatie of een grote groep (geen routine-overleg).
+const BIG_MEETING = /klant|client|customer|pitch|presentat|demo|board|directie|interview|sales|workshop|conferen|event/i;
+const ROUTINE_MEETING = /stand-?up|daily|weekly|sync|lunch|1:1|one.on.one|focus|check-?in|halen/i;
+function isBigMeeting(e) {
+  if (ROUTINE_MEETING.test(e.title)) return false;
+  return BIG_MEETING.test(e.title) || e.guests >= 6;
+}
+
+function outfitForMe(s, workday, bigMeeting, day) {
+  const { formula, count } = pickFormula(s, workday, day);
+  const items = [...formula.items];
+  const f = s.feelMorning;
+  const wet = s.rainHours.length > 0 || s.rainMax >= 60;
+  const notes = [];
+
+  // Het weer bepaalt de jas en de laagjes.
+  if (f <= 3) items.push('lange wollen jas', 'dikke sjaal', 'handschoenen');
+  else if (f <= 8) items.push(wet ? 'waterdichte parka' : 'lange wollen jas (camel of zwart)', 'sjaal');
+  else if (f <= 13) items.push(wet ? 'regenjas in een felle kleur' : 'trenchcoat of oversized blazer');
+  else if (wet) items.push('lichte regenjas');
+  if (bigMeeting) items.push('oversized blazer erover');
+  if (s.uv >= 5 && !items.some((i) => /zonnebril/.test(i))) items.push('zonnebril', 'SPF');
+
+  if (wet && formula.suede) notes.push('Regen: suède houdt daar niet van — kies leren sneakers of boots.');
+  else if (wet && /loafers|ballerina|sandal/i.test(formula.items.join(' '))) notes.push('Regen: kies boots in plaats van open schoenen.');
+  if (s.feelMax - s.feelMin >= 7) notes.push(`Laagjes: ${Math.round(s.feelMin)}° 's ochtends, ${Math.round(s.feelMax)}° op z'n warmst.`);
+  if (wet) notes.push(`Paraplu of kap mee — regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
+  if (bigMeeting) notes.push(`Op de agenda: "${bigMeeting}".`);
+
+  const pin = `${formula.pin}${wet ? ' rainy day' : ''}${f <= 8 ? ' coat' : ''}`;
+  return { items: [...new Set(items)], notes, pin, formula, count };
+}
+
+function season(d = new Date()) {
+  return ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'fall', 'fall', 'fall', 'winter'][d.getMonth()];
+}
+
+function pinterestUrl(q) {
+  return `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}`;
+}
+
+function outfitForKid(s, kid) {
   const items = [];
   const f = s.feelMorning;
   const wet = s.rainHours.length > 0 || s.rainMax >= 60;
-  const hasLittle = kids.some((k) => Number(k.age) > 0 && Number(k.age) <= 4);
+  const girl = kid.gender === 'meisje';
+  const age = Number(kid.age) || 0;
+  const little = age > 0 && age <= 4;
 
-  if (f <= 3) items.push('thermo-ondershirt', 'dikke trui', 'gevoerde broek', 'winterjas', 'muts + sjaal + wanten');
-  else if (f <= 8) items.push('longsleeve', 'trui of fleece', 'lange broek', 'warme jas', 'muts');
-  else if (f <= 13) items.push('longsleeve', 'hoodie of vest', 'lange broek', 'tussenjas');
-  else if (f <= 18) items.push('t-shirt', 'sweater (uit te doen)', 'lange broek of legging', 'licht jasje');
-  else if (f <= 23) items.push('t-shirt', 'short of luchtige broek', 'dun vestje voor de ochtend');
-  else items.push('luchtig t-shirt', 'short of jurkje', 'petje');
+  if (f <= 3) items.push('thermo-ondershirt', girl ? 'dikke trui of gebreide jurk + maillot' : 'dikke trui', 'gevoerde broek', 'winterjas', 'muts + sjaal + wanten');
+  else if (f <= 8) items.push('longsleeve', girl ? 'trui of fleece' : 'hoodie of fleece', girl ? 'jeans of dikke legging' : 'jeans of jogging', 'warme jas', 'muts');
+  else if (f <= 13) items.push('longsleeve', girl ? 'vestje of sweater' : 'hoodie', girl ? 'broek, of jurk met maillot' : 'lange broek of jogging', 'tussenjas');
+  else if (f <= 18) items.push('t-shirt', 'sweater (uit te doen)', girl ? 'legging of rokje met maillot' : 'lange broek', 'licht jasje');
+  else if (f <= 23) items.push('t-shirt', girl ? 'short, rokje of luchtig jurkje' : 'short of luchtige broek', 'dun vestje voor de ochtend');
+  else items.push('luchtig t-shirt', girl ? 'jurkje of short' : 'short', 'petje');
 
   if (wet) items.push('regenjas met kap', f <= 13 ? 'regenlaarzen' : 'waterdichte schoenen');
   else items.push(f <= 8 ? 'gesloten warme schoenen' : 'sneakers');
   if (s.uv >= 4 || s.feelMax >= 22) items.push('zonnecrème', 'pet of hoedje');
-  if (s.feelMax >= 20) items.push('drinkbus');
 
   const notes = [];
-  if (s.feelMax - s.feelMin >= 7) notes.push('Laagjes: de trui gaat ’s middags waarschijnlijk uit, ’s ochtends hebben ze hem nodig.');
-  if (wet) notes.push(`Voor de speelplaats: regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
-  if (hasLittle && wet) notes.push('Reserveset kleren in de rugzak.');
-  else if (hasLittle) notes.push('Reserveset mee naar de opvang.');
-  return { items: [...new Set(items)], notes };
+  if (s.feelMax - s.feelMin >= 7) notes.push('Laagjes: ’s ochtends fris, ’s middags gaat de trui uit.');
+  if (wet) notes.push(`Regen ${rainWindow(s.rainHours) || 'mogelijk'} — speeltijd wordt nat.`);
+  if (little) notes.push('Reserveset kleren in de rugzak.');
+
+  const layer = f <= 8 ? 'warm winter layers' : f <= 18 ? 'layered' : 'summer';
+  const who = girl ? (little ? 'toddler girl' : 'girls') : (little ? 'toddler boy' : 'boys');
+  const pin = `${season()} ${who} outfit ${layer}${wet ? ' raincoat rain boots' : ''}`;
+  return { items: [...new Set(items)], notes, pin };
 }
 
 function vibe(s) {
@@ -287,33 +320,186 @@ function vibe(s) {
   return 'Summer mode';
 }
 
+// Vanaf 17u plannen we voor morgen: kleren klaarleggen, boekentas klaarzetten.
+function planDay() {
+  const w = state.weather;
+  const tomorrow = new Date().getHours() >= 17 && (!w || w.daily.time.length > 1);
+  return { tomorrow, index: tomorrow ? 1 : 0, day: addDays(startOfDay(new Date()), tomorrow ? 1 : 0) };
+}
+
+const outfitBlock = (label, cls, o) => `
+  <div class="outfit__who">
+    <div class="outfit__name ${cls}">${esc(label)}</div>
+    <ul class="outfit__items">${o.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+    ${o.notes.map((n) => `<p class="outfit__note">${esc(n)}</p>`).join('')}
+    <a class="pin-btn" href="${pinterestUrl(o.pin)}" target="_blank" rel="noopener">Inspiratie op Pinterest <span aria-hidden="true">↗</span></a>
+  </div>`;
+
 function renderOutfit() {
   const w = state.weather;
   if (!w) return;
-  // Vanaf 17u kijken we naar morgen: dan kan je de kleren al klaarleggen.
-  const tomorrow = new Date().getHours() >= 17 && w.daily.time.length > 1;
-  const day = addDays(startOfDay(new Date()), tomorrow ? 1 : 0);
-  const s = daySummary(w, tomorrow ? 1 : 0);
+  const { tomorrow, index, day } = planDay();
+  const s = daySummary(w, index);
   const work = state.calendars?.werk ? eventsOn(state.calendars.werk, day) : null;
   const workday = isWorkday(day, work);
-  const big = (work || []).find((e) => !e.allDay && new Date(e.end) > new Date() && e.guests >= 4)?.title;
-  const me = outfitForMe(s, workday, big);
-  const kids = settings.kids || [];
-  const ko = outfitForKids(s, kids);
-  const kidsLabel = kids.length ? kids.map((k) => k.name).filter(Boolean).join(' & ') : 'De kids';
-  const when = tomorrow ? 'morgen · ' : '';
-  $('#outfit-card .card__title').textContent = tomorrow ? 'Klaarleggen voor morgen' : 'Wat trek je aan?';
-
+  const big = (work || []).find((e) => !e.allDay && new Date(e.end) > new Date() && isBigMeeting(e))?.title;
+  const me = outfitForMe(s, workday, big, day);
+  $('#outfit-card .card__title').innerHTML = tomorrow ? 'Klaarleggen <em>voor morgen</em>' : 'Wat trek je <em>vandaag</em> aan?';
   $('#outfit-vibe').textContent = vibe(s);
-  const block = (label, cls, o) => `
+  $('#outfit').innerHTML = `
     <div class="outfit__who">
-      <div class="outfit__name ${cls}">${esc(label)}</div>
-      <ul class="outfit__items">${o.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
-      ${o.notes.map((n) => `<p class="outfit__note">${esc(n)}</p>`).join('')}
+      <div class="outfit__name">${esc(settings.name || 'Jij')} · ${tomorrow ? 'morgen · ' : ''}${workday ? 'werkdag' : 'vrije dag'}</div>
+      <div class="look">
+        <span class="look__swatches">${me.formula.colors.map((c) => `<i style="background:${c}"></i>`).join('')}</span>
+        <span class="look__name">${esc(me.formula.name)}</span>
+      </div>
+      <ul class="outfit__items">${me.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+      ${me.notes.map((n) => `<p class="outfit__note">${esc(n)}</p>`).join('')}
+      <div class="outfit__actions">
+        ${me.count > 1 ? `<button type="button" class="btn-pill" id="outfit-next">↻ Andere combi</button>` : ''}
+        <a class="pin-btn" href="${pinterestUrl(me.pin)}" target="_blank" rel="noopener">Meer zoals dit <span aria-hidden="true">↗</span></a>
+        <a class="btn-pill" href="${STYLE_BOARD}" target="_blank" rel="noopener">Mijn bord</a>
+      </div>
+      <p class="outfit__style">${esc(STYLE_SUMMARY)}</p>
     </div>`;
-  $('#outfit').innerHTML =
-    block(`${settings.name || 'Jij'} · ${when}${workday ? 'werkdag' : 'vrije dag'}`, '', me) +
-    block(`${kidsLabel}${tomorrow ? ' · morgen' : ''}`, 'outfit__name--kids', ko);
+  $('#outfit-next')?.addEventListener('click', () => { outfitShift++; renderOutfit(); });
+}
+
+function renderKids() {
+  const w = state.weather;
+  const kids = (settings.kids || []).filter((k) => k.name);
+  const card = $('#kids-card');
+  card.hidden = !kids.length;
+  if (!kids.length || !w) return;
+  const { tomorrow, index } = planDay();
+  const s = daySummary(w, index);
+  $('#kids-title').innerHTML = kids.map((k) => esc(k.name)).join(' <em>&amp;</em> ');
+  $('#kids-when').textContent = tomorrow ? 'klaarleggen voor morgen' : 'vandaag';
+  $('#kids').innerHTML = kids.map((k) => {
+    const cls = k.gender === 'meisje' ? 'outfit__name--girl' : 'outfit__name--boy';
+    return outfitBlock(`${k.name}${k.age ? ` · ${k.age} jaar` : ''}`, cls, outfitForKid(s, k));
+  }).join('');
+}
+
+// ---------- MEE TE GEVEN ----------
+// Zoekt in alle agenda's naar afspraken over de kinderen en naar dingen om mee te nemen.
+const BRING_RULES = [
+  [/zwem/i, ['zwemgerief', 'handdoek', 'badmuts']],
+  [/\bturn|\bgym\b|sportdag|\bsport\b|\blo-les|\bL\.O\./i, ['turnzak / sportkledij']],
+  [/uitstap|schoolreis|excursie|bosdag|boerderij/i, ['lunchpakket', 'drinkbus', 'rugzak']],
+  [/picknick/i, ['picknick']],
+  [/verjaardag|feestje|\bparty\b/i, ['cadeautje']],
+  [/traktatie|trakteren/i, ['traktatie']],
+  [/verkleed|carnaval|halloween|themadag/i, ['verkleedkleren']],
+  [/\bbib\b|bibliotheek|bibboek/i, ['bibboeken']],
+  [/dokter|\barts\b|specialist|tandarts|ziekenhuis|kine|logo(pedie)?\b|orthodont/i, ['Kids-ID', 'eventueel verwijsbrief']],
+  [/\bgeld\b|€|\beuro\b/i, ['gepast geld']],
+  [/formulier|briefje|toelating|handtekening|strookje/i, ['ingevuld briefje']],
+  [/\bfruit/i, ['fruit']],
+  [/knutsel|kosteloos materiaal/i, ['knutselmateriaal']],
+  [/logeren|slaapfeestje|overnachten/i, ['pyjama', 'tandenborstel', 'knuffel']],
+];
+const BRING_EXPLICIT = /(?:(?:meenemen|meebrengen|meegeven|mee\s*nemen)\s*:|niet vergeten\s*:?|vergeet niet\s*:?|\bmee\s*:)\s*([^\n.]*)/i;
+const KID_CONTEXT = /\bkids?\b|kinderen|\bschool\b|opvang|\bklas\b|\bjuf\b|meester|crèche|kinderdagverblijf/i;
+const PICKUP = /\b(op)?halen\b|brengen|afzetten/i;
+
+function kidNames() {
+  return (settings.kids || []).map((k) => (k.name || '').trim()).filter(Boolean);
+}
+
+// "Niet vergeten: laarzen, reservekleren" (na het woord) of "Zwemzak meenemen" (ervoor)
+const BRING_BEFORE = /([^\n.:;,]{2,40}?)\s+(?:meenemen|meebrengen|meegeven|mee\s*nemen)\b/i;
+function explicitItems(text) {
+  const split = (str) => str.split(/,|;|\s\+\s|\ben\b/).map((x) => x.trim()).filter((x) => x && x.length <= 40);
+  const after = text.match(BRING_EXPLICIT);
+  if (after && after[1].trim()) return split(after[1]);
+  const before = text.match(BRING_BEFORE);
+  return before ? split(before[1]) : [];
+}
+
+function bringFor(day) {
+  const names = kidNames();
+  const nameRe = names.length ? new RegExp(`\\b(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'i') : null;
+  const seen = new Set();
+  const rows = [];
+  for (const [key, cal] of Object.entries(state.calendars || {})) {
+    for (const e of eventsOn(cal, day)) {
+      const text = `${e.title}\n${e.description || ''}`;
+      const kidsMentioned = nameRe ? [...new Set((text.match(new RegExp(nameRe, 'gi')) || []).map((n) => names.find((x) => x.toLowerCase() === n.toLowerCase())))] : [];
+      const explicit = explicitItems(text);
+      const relevant = kidsMentioned.length || explicit.length || KID_CONTEXT.test(text);
+      if (!relevant) continue;
+      const id = `${e.title}|${e.start || e.startDate}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      // Wat expliciet in de agenda staat, wint; anders vullen we aan op basis van de activiteit.
+      const items = [...explicit];
+      if (!items.length) for (const [re, add] of BRING_RULES) if (re.test(text)) items.push(...add);
+      rows.push({
+        id, e, kids: kidsMentioned, cal: cal.label || key,
+        pickup: PICKUP.test(e.title) && !items.length,
+        items: [...new Set(items.map((i) => i.charAt(0).toLowerCase() + i.slice(1)))],
+      });
+    }
+  }
+  return rows.sort((a, b) => (b.e.allDay - a.e.allDay) || (new Date(a.e.start) - new Date(b.e.start)));
+}
+
+function weatherBring(s) {
+  const items = [];
+  if (s.rainHours.length || s.rainMax >= 60) items.push('regenjas', 'reservekousen');
+  if (s.uv >= 5 || s.feelMax >= 24) items.push('zonnecrème', 'petje');
+  if (s.feelMax >= 22) items.push('extra drinkbus');
+  if (s.feelMorning <= 3) items.push('muts & wanten');
+  return items;
+}
+
+const bringKey = (day) => `mydaily.bring.${ymd(day)}`;
+
+function renderBring() {
+  const box = $('#bring');
+  if (!state.calendars && !state.weather) return;
+  const { tomorrow, index, day } = planDay();
+  const rows = state.calendars ? bringFor(day) : [];
+  const wx = state.weather ? weatherBring(daySummary(state.weather, index)) : [];
+  const done = new Set(lsGet(bringKey(day), []));
+  const names = kidNames();
+  $('#bring-title').innerHTML = tomorrow ? 'Klaarzetten <em>voor morgen</em>' : 'Mee voor <em>de kids</em>';
+
+  const chip = (id, label) => `<button type="button" class="check ${done.has(id) ? 'is-done' : ''}" data-id="${esc(id)}" aria-pressed="${done.has(id)}"><span class="check__box" aria-hidden="true"></span>${esc(label)}</button>`;
+  let total = 0, open = 0;
+  const count = (id) => { total++; if (!done.has(id)) open++; };
+
+  const html = rows.map((r) => {
+    const when = r.e.allDay ? 'hele dag' : hhmm(new Date(r.e.start));
+    const who = r.kids.length ? r.kids.join(' & ') : (names.join(' & ') || 'kids');
+    r.items.forEach((i) => count(`${r.id}|${i}`));
+    return `<div class="bring__row ${r.pickup ? 'bring__row--pickup' : ''}">
+      <div class="bring__when">${when}</div>
+      <div class="bring__body">
+        <div class="bring__what">${esc(r.e.title)}</div>
+        <div class="bring__meta">${esc(who)} · ${esc(r.cal)}${r.e.location ? ' · ' + esc(r.e.location) : ''}</div>
+        ${r.items.length ? `<div class="bring__items">${r.items.map((i) => chip(`${r.id}|${i}`, i)).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  });
+  if (wx.length) {
+    wx.forEach((i) => count(`wx|${i}`));
+    html.push(`<div class="bring__row bring__row--wx">
+      <div class="bring__when">☂︎</div>
+      <div class="bring__body"><div class="bring__what">Door het weer</div>
+      <div class="bring__items">${wx.map((i) => chip(`wx|${i}`, i)).join('')}</div></div></div>`);
+  }
+  box.innerHTML = html.length ? html.join('') : `<p class="bring__none">Niets speciaals in de agenda voor ${esc(names.join(' & ') || 'de kids')} ${tomorrow ? 'morgen' : 'vandaag'} ✓</p>`;
+  $('#bring-count').textContent = total ? (open ? `nog ${open} van ${total}` : 'alles mee ✓') : `${rows.length} in agenda`;
+
+  box.querySelectorAll('.check').forEach((b) => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    const set = new Set(lsGet(bringKey(day), []));
+    set.has(id) ? set.delete(id) : set.add(id);
+    lsSet(bringKey(day), [...set]);
+    renderBring();
+  }));
 }
 
 // ---------- AGENDA ----------
@@ -491,6 +677,8 @@ function demoCalendars() {
   const ev = (title, d, h1, m1, h2, m2, extra = {}) => ({ title, start: at(d, h1, m1), end: at(d, h2, m2), allDay: false, guests: 1, location: '', ...extra });
   return {
     werk: { key: 'werk', label: 'Werk', events: [
+      ev('Remi/Cilou halen', 0, 16, 15, 17, 0),
+      ev('Remi/Cilou halen', 1, 16, 15, 17, 0),
       ev('Team stand-up', 0, 9, 0, 9, 15, { guests: 6, location: 'Google Meet' }),
       ev('Klantgesprek Q4-plan', 0, 10, 30, 11, 30, { guests: 5 }),
       ev('Lunch', 0, 12, 30, 13, 0),
@@ -498,6 +686,8 @@ function demoCalendars() {
       ev('Focus: rapport afwerken', 0, 15, 0, 17, 0),
     ] },
     tessa: { key: 'tessa', label: 'Tessa', events: [
+      ev('Remi zwemmen met de klas', 0, 10, 0, 11, 30, { description: 'Zwemzak meenemen' }),
+      ev('Uitstap Cilou naar de boerderij', 1, 9, 0, 15, 0, { description: 'Niet vergeten: laarzen, reservekleren' }),
       ev('Yoga', 0, 19, 30, 20, 30),
       ev('Kapper', 1, 17, 30, 18, 30),
       { title: 'Verjaardag oma', allDay: true, startDate: ymd(addDays(t, 2)), endDate: ymd(addDays(t, 3)) },
@@ -514,7 +704,9 @@ function demoCalendars() {
 function renderAll() {
   tickClock();
   renderWeather();
+  renderBring();
   renderOutfit();
+  renderKids();
   renderWork();
   renderFamily();
   const notes = [];
@@ -553,7 +745,11 @@ function kidRow(k = {}) {
   const div = document.createElement('div');
   div.className = 'subcard row';
   div.innerHTML = `<input placeholder="Naam" data-f="name" value="${esc(k.name || '')}">
-    <input placeholder="Leeftijd" data-f="age" type="number" min="0" max="18" style="max-width:90px" value="${esc(k.age ?? '')}">
+    <select data-f="gender" aria-label="Jongen of meisje" style="max-width:110px">
+      <option value="jongen" ${k.gender !== 'meisje' ? 'selected' : ''}>jongen</option>
+      <option value="meisje" ${k.gender === 'meisje' ? 'selected' : ''}>meisje</option>
+    </select>
+    <input placeholder="Leeftijd" data-f="age" type="number" min="0" max="18" style="max-width:80px" value="${esc(k.age ?? '')}">
     <button type="button" class="btn btn--x" aria-label="Verwijder">✕</button>`;
   div.querySelector('button').onclick = () => div.remove();
   return div;
