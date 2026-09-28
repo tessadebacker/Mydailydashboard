@@ -35,6 +35,15 @@
 
   <div class="banner" id="banner" hidden></div>
 
+  <!-- MEE TE GEVEN (bovenaan) -->
+  <section class="bring" id="bring-card" aria-live="polite">
+    <div class="bring__head">
+      <h2 class="bring__title" id="bring-title">Mee voor <em>de kids</em></h2>
+      <span class="tag" id="bring-count">…</span>
+    </div>
+    <div id="bring"></div>
+  </section>
+
   <main class="grid">
     <!-- WEER -->
     <section class="card card--weather" id="weather-card">
@@ -62,6 +71,15 @@
       <div class="outfit" id="outfit">
         <div class="skeleton">Even kijken naar het weer…</div>
       </div>
+    </section>
+
+    <!-- KINDEREN -->
+    <section class="card card--kids" id="kids-card">
+      <div class="card__head">
+        <h2 class="card__title" id="kids-title">Remi <em>&amp;</em> Cilou</h2>
+        <span class="tag" id="kids-when">vandaag</span>
+      </div>
+      <div class="kids" id="kids"></div>
     </section>
 
     <!-- WERK VANDAAG -->
@@ -124,7 +142,7 @@
 
       <fieldset>
         <legend>Kinderen</legend>
-        <p class="hint">Voor de kledingtips. Leeftijd helpt (bv. reservekleren voor kleintjes).</p>
+        <p class="hint">Voor hun eigen kledingtips en om ze in je agenda te herkennen. Leeftijd helpt (bv. reservekleren voor kleintjes).</p>
         <div id="kids-list"></div>
         <button type="button" class="btn btn--ghost" id="kid-add">+ Kind toevoegen</button>
       </fieldset>

@@ -74,6 +74,8 @@ function toJson_(ev, tz) {
     location: ev.getLocation() || '',
     allDay: ev.isAllDayEvent(),
     guests: ev.getGuestList(true).length,
+    // Korte beschrijving: daar staat vaak wat je moet meenemen ("zwemgerief meenemen")
+    description: cleanText_(ev.getDescription()).slice(0, 400),
   };
   if (out.allDay) {
     out.startDate = Utilities.formatDate(ev.getAllDayStartDate(), tz, 'yyyy-MM-dd');
@@ -83,6 +85,12 @@ function toJson_(ev, tz) {
     out.end = ev.getEndTime().toISOString();
   }
   return out;
+}
+
+function cleanText_(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/[ \t]+/g, ' ').trim();
 }
 
 function startOfToday_() {

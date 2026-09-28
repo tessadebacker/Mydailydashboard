@@ -70,12 +70,15 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 .grid { max-width: 1200px; margin: 0 auto; display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 760px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .card--family { grid-column: 1 / -1; }
+  .card--family, .card--kids { grid-column: 1 / -1; }
+  .kids { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  .kids .outfit__who { margin-bottom: 0; }
 }
 @media (min-width: 1100px) {
   .grid { grid-template-columns: 1fr 1fr 1.1fr; }
   .card--work { grid-column: 3; grid-row: 1 / span 2; }
-  .card--family { grid-column: 1 / 3; }
+  .card--kids { grid-column: 1 / 3; }
+  .card--family { grid-column: 1 / -1; }
 }
 
 .card { border-radius: var(--radius); padding: 22px 20px; position: relative; min-width: 0; }
@@ -83,6 +86,8 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
 .card--outfit  { background: var(--butter); }
 .card--work    { background: var(--blush); }
 .card--family  { background: var(--sage); }
+.card--kids    { background: var(--mint); }
+.card[hidden]  { display: none; }
 
 .card__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
 .card__title { margin: 0; font-weight: 700; font-size: 26px; line-height: 1; letter-spacing: -.03em; }
@@ -132,7 +137,39 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spa
   display: inline-block; font-weight: 700; font-size: 13px; background: var(--ink); color: var(--paper);
   padding: 6px 12px; border-radius: 999px; margin-bottom: 10px;
 }
-.outfit__name--kids { background: var(--coral); color: var(--ink); }
+.outfit__name--boy { background: var(--lorenzo); color: #fff; }
+.outfit__name--girl { background: var(--tessa); color: #fff; }
+
+/* ---------- mee te geven ---------- */
+.bring {
+  max-width: 1200px; margin: 0 auto 14px; background: var(--coral); border-radius: var(--radius); padding: 20px;
+}
+.bring__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.bring__title { margin: 0; font-weight: 700; font-size: 26px; line-height: 1; letter-spacing: -.03em; }
+.bring__title em { font-size: 1.12em; }
+#bring { display: grid; gap: 8px; }
+@media (min-width: 760px) { #bring { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); } }
+.bring__row {
+  display: grid; grid-template-columns: 52px 1fr; gap: 10px; background: var(--paper); border-radius: 22px; padding: 12px 14px;
+}
+.bring__row--pickup { background: rgba(255, 250, 241, .6); }
+.bring__row--wx { background: var(--butter); }
+.bring__when { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; padding-top: 1px; }
+.bring__what { font-weight: 700; word-break: break-word; }
+.bring__meta { color: var(--muted); font-size: 13px; }
+.bring__items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bring__none { margin: 0; font-weight: 600; background: rgba(255, 250, 241, .6); border-radius: 22px; padding: 14px; }
+.check {
+  display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--ink); background: transparent;
+  border-radius: 999px; padding: 6px 12px 6px 8px; font-size: 14px; font-weight: 600;
+}
+.check__box { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--ink); display: inline-block; position: relative; }
+.check.is-done { background: var(--ink); color: var(--paper); text-decoration: line-through; }
+.check.is-done .check__box { background: var(--butter); border-color: var(--butter); }
+.check.is-done .check__box::after {
+  content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+  border: solid var(--ink); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
 .outfit__items { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .outfit__items li { border-radius: 999px; padding: 7px 12px; font-size: 14px; background: var(--paper); border: 1.5px solid var(--line); }
 .outfit__note { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
