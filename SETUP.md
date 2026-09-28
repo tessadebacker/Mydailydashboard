@@ -91,3 +91,5 @@ en daarna elke 15 minuten. De laatst geladen agenda blijft zichtbaar als je offl
 - **Wat trek je aan?**: kledingtips voor jou (werkdag of vrije dag, en of er een grote meeting
   is) en voor de kinderen. Je vult hun naam en leeftijd in bij Instellingen. Vanaf 17u krijg je de tips
   voor **morgen**, zodat je de kleren al kan klaarleggen.
+  Bij elke outfit staat een knop **Inspiratie op Pinterest**. Die zoekt op de voorgestelde
+  outfit, met het seizoen en eventueel regen erbij. Op je iPhone opent de knop meteen de Pinterest-app.

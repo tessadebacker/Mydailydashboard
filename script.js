@@ -24,7 +24,7 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const DAY_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'long' });
 const DATE_FMT = new Intl.DateTimeFormat('nl-BE', { day: 'numeric', month: 'short' });
-const LONG_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+const LONG_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' });
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
@@ -69,6 +69,7 @@ function tickClock() {
   $('#greeting').textContent = h < 6 ? 'Nachtuil' : h < 12 ? 'Goeiemorgen' : h < 18 ? 'Hey' : 'Goeienavond';
   $('#today-label').textContent = LONG_FMT.format(now);
   $('#name').textContent = settings.name || 'jij';
+  $('#avatar').textContent = (settings.name || 'T').trim().charAt(0).toUpperCase();
 }
 
 // ---------- WEER ----------
@@ -224,19 +225,22 @@ function outfitForMe(s, workday, bigMeeting) {
   const wet = s.rainHours.length > 0 || s.rainMax >= 60;
   const layered = s.feelMax - s.feelMin >= 7;
 
+  let pin; // zoektermen voor Pinterest-inspiratie (Engels geeft de beste resultaten)
   if (workday) {
-    if (f <= 5) items.push('wollen coltrui', 'wide-leg pantalon', 'lange wollen jas', 'sjaal');
-    else if (f <= 11) items.push('fijne knit', 'wide-leg jeans of pantalon', 'oversized blazer of trenchcoat');
-    else if (f <= 17) items.push('statement blouse', 'pantalon of midi-rok', 'blazer (uit te doen)');
-    else if (f <= 22) items.push('luchtige blouse of tee', 'wide-leg linnen broek', 'lichte overshirt');
-    else items.push('linnen set of luchtige jurk', 'lichte loafers of sandalen');
+    if (f <= 5) { items.push('wollen coltrui', 'wide-leg pantalon', 'lange wollen jas', 'sjaal'); pin = 'turtleneck wide leg trousers long wool coat'; }
+    else if (f <= 11) { items.push('fijne knit', 'wide-leg jeans of pantalon', 'oversized blazer of trenchcoat'); pin = 'knit oversized blazer trench coat wide leg'; }
+    else if (f <= 17) { items.push('statement blouse', 'pantalon of midi-rok', 'blazer (uit te doen)'); pin = 'blouse midi skirt blazer'; }
+    else if (f <= 22) { items.push('luchtige blouse of tee', 'wide-leg linnen broek', 'lichte overshirt'); pin = 'linen trousers blouse overshirt'; }
+    else { items.push('linnen set of luchtige jurk', 'lichte loafers of sandalen'); pin = 'linen set summer dress'; }
+    pin = `work outfit ${pin}`;
     if (bigMeeting) items.push('iets sharp: je sterkste blazer');
   } else {
-    if (f <= 5) items.push('dikke hoodie of chunky knit', 'jeans', 'puffer jacket', 'muts');
-    else if (f <= 11) items.push('sweater', 'jeans of cargo', 'bomber of teddyjas');
-    else if (f <= 17) items.push('longsleeve of shirt', 'jeans', 'jeansjasje of overshirt');
-    else if (f <= 22) items.push('tee', 'wide jeans of rok', 'licht vestje voor \'s avonds');
-    else items.push('tank of tee', 'short of luchtige jurk', 'sneakers of sandalen');
+    if (f <= 5) { items.push('dikke hoodie of chunky knit', 'jeans', 'puffer jacket', 'muts'); pin = 'chunky knit puffer jacket beanie'; }
+    else if (f <= 11) { items.push('sweater', 'jeans of cargo', 'bomber of teddyjas'); pin = 'sweater jeans teddy jacket'; }
+    else if (f <= 17) { items.push('longsleeve of shirt', 'jeans', 'jeansjasje of overshirt'); pin = 'denim jacket overshirt jeans'; }
+    else if (f <= 22) { items.push('tee', 'wide jeans of rok', 'licht vestje voor \'s avonds'); pin = 'tee wide jeans cardigan'; }
+    else { items.push('tank of tee', 'short of luchtige jurk', 'sneakers of sandalen'); pin = 'summer dress shorts sandals'; }
+    pin = `casual mom outfit ${pin}`;
   }
   if (wet) items.push(f <= 11 ? 'waterdichte parka' : 'regenjas', wet && f <= 11 ? 'boots' : 'waterdichte sneakers');
   else if (f > 11) items.push(workday ? 'clean sneakers of loafers' : 'sneakers');
@@ -248,7 +252,16 @@ function outfitForMe(s, workday, bigMeeting) {
   if (layered) notes.push(`Laagjes: ${Math.round(s.feelMin)}° 's ochtends, ${Math.round(s.feelMax)}° op z'n warmst.`);
   if (wet) notes.push(`Paraplu of kap mee — regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
   if (bigMeeting) notes.push(`Op de agenda: "${bigMeeting}".`);
-  return { items: [...new Set(items)], notes };
+  if (wet) pin += ' rainy day';
+  return { items: [...new Set(items)], notes, pin: `${season()} ${pin}` };
+}
+
+function season(d = new Date()) {
+  return ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'fall', 'fall', 'fall', 'winter'][d.getMonth()];
+}
+
+function pinterestUrl(q) {
+  return `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}`;
 }
 
 function outfitForKids(s, kids) {
@@ -274,7 +287,9 @@ function outfitForKids(s, kids) {
   if (wet) notes.push(`Voor de speelplaats: regen ${rainWindow(s.rainHours) || 'mogelijk'}.`);
   if (hasLittle && wet) notes.push('Reserveset kleren in de rugzak.');
   else if (hasLittle) notes.push('Reserveset mee naar de opvang.');
-  return { items: [...new Set(items)], notes };
+  const layer = f <= 8 ? 'warm coat layers' : f <= 18 ? 'hoodie layers' : 'summer';
+  const pin = `${season()} kids outfit ${layer}${wet ? ' rain boots raincoat' : ''}`;
+  return { items: [...new Set(items)], notes, pin };
 }
 
 function vibe(s) {
@@ -302,7 +317,7 @@ function renderOutfit() {
   const ko = outfitForKids(s, kids);
   const kidsLabel = kids.length ? kids.map((k) => k.name).filter(Boolean).join(' & ') : 'De kids';
   const when = tomorrow ? 'morgen · ' : '';
-  $('#outfit-card .card__title').textContent = tomorrow ? 'Klaarleggen voor morgen' : 'Wat trek je aan?';
+  $('#outfit-card .card__title').innerHTML = tomorrow ? 'Klaarleggen <em>voor morgen</em>' : 'Wat trek je <em>vandaag</em> aan?';
 
   $('#outfit-vibe').textContent = vibe(s);
   const block = (label, cls, o) => `
@@ -310,6 +325,7 @@ function renderOutfit() {
       <div class="outfit__name ${cls}">${esc(label)}</div>
       <ul class="outfit__items">${o.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
       ${o.notes.map((n) => `<p class="outfit__note">${esc(n)}</p>`).join('')}
+      <a class="pin-btn" href="${pinterestUrl(o.pin)}" target="_blank" rel="noopener">Inspiratie op Pinterest <span aria-hidden="true">↗</span></a>
     </div>`;
   $('#outfit').innerHTML =
     block(`${settings.name || 'Jij'} · ${when}${workday ? 'werkdag' : 'vrije dag'}`, '', me) +
